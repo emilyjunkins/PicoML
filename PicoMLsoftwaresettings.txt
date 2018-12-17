@@ -1,0 +1,28 @@
+#Software list with settings
+
+#Kaiju v1.6.2-webserver
+#uploaded all contigs from unfiltered Canu assembly
+#Menzel, P., Ng, K. L., & Krogh, A. (2016). Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nature Communications, 7, #1–9. http://doi.org/10.1038/ncomms11257
+
+#Canu v1.6
+#Koren, S., Walenz, B. P., Berlin, K., Miller, J. R., Bergman, N. H., & Phillippy, A. M. (2017). Canu: scalable and accurate long-read assembly #via adaptive k-mer weighting and repeat separation. Genome Research, 27(5), 722–736. http://doi.org/10.1101/gr.215087.116
+#pre-filtered
+canu -d CanuAssembly -p PBpico genomeSize=25m -pacbio-raw rawreads/*.fastq.gz
+#post-filtered
+canu -d ChlorophytaCanuAssembly_CTA -p ChloroCTA genomeSize=23m -pacbio-raw ./rawreads/chlorophytaseq.fastq
+
+#RNammer v1.2
+#Lagesen, K., Hallin, P., Rødland, E. A., Stærfeldt, H.-H., Rognes, T., & Ussery, D. W. (2007). RNAmmer: consistent and rapid annotation of #ribosomal RNA genes. Nucleic Acids Research, 35(9), 3100–3108. http://doi.org/10.1093/nar/gkm160
+rnammer -S euk -m ssu -gff ssu.PBPico.gff -h ssu.PBPico.hmm -f ssu.PBPico.fasta PBpico.contigs.fasta
+
+#RepeatMasker v4.0.7
+#Smit, AFA, Hubley R, Green P. 2010. RepeatMasker Open-4.0. http://repeatmasker.org
+RepeatMasker -e ncbi -s -species Chlorophyta -no_is -gccalc -noisy ../rnammerSEARCH/ChloroCTA/ChloroCTA.contigs.fasta 
+
+#AUGUSTUS-webserver
+#uploaded the masked file from RepeatMasker output
+#Stanke, M., Steinkamp, R., Waack, S., & Morgenstern, B. (2004). AUGUSTUS: a web server for gene finding in eukaryotes. Nucleic Acids Research, #32(Web Server), W309–W312. http://doi.org/10.1093/nar/gkh379
+
+#BLASTKoala v2.1-webserver
+#uploaded the AUGUSTUS amino acid output file
+#Kanehisa, M., Sato, Y., & Morishima, K. (2016). BlastKOALA and GhostKOALA: KEGG Tools for Functional Characterization of Genome and Metagenome #Sequences. Journal of Molecular Biology, 428(4), 726–731. http://doi.org/10.1016/j.jmb.2015.11.006

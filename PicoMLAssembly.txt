@@ -1,0 +1,84 @@
+##Convert PacBio Bam files to fastq files 
+
+bam2fastq -> /work/smrtanalysis/smrtlink/smrtcmds/bin
+Pac Bio reads ->/work/ejunkins//Picocystis/Junkins_4458_171120/
+/
+#copy subreads.bam files into new cleaner file names
+
+/20171114_135658/2_B01/m54089_171115_001231.subreads.bam -> reads1.bam
+/20171117_141835/1_A01/m54089_171117_142824.subreads.bam -> reads2.bam
+/20171117_141835/2_B01/m54089_171118_003533.subreads.bam -> reads3.bam
+/20171117_141835/3_C01/m54089_171118_104502.subreads.bam -> reads4.bam
+
+#convert to fastq, this will require .bam and .bam.pbi file, best if run in flowcell output directory
+$ ../../../../../smrtanalysis/smrtlink/smrtcmds/bin/bam2fastq -o reads2 m54089_171117_142824.subreads.bam
+
+
+#assemble with Canu
+canu -d CanuAssembly -p PBpico genomeSize=25m -pacbio-raw rawreads/*.fastq.gz
+
+
+#kaiju-webserver, filter out non-Chlorophyta contigs
+./addTaxonNames -t nodes.dmp -n names.dmp -i /media/corA/Junkins/Picocystis/PacBioGenomeAssembly/Kaiju_out -o kaiju.names.out
+./kaijuReport -t nodes.dmp -n names.dmp -i /media/corA/Junkins/Picocystis/PacBioGenomeAssembly/Kaiju_out -r phylum -o /media/corA/Junkins/Picocystis/PacBioGenomeAssembly/kaiju.summary
+
+#with kaiju, I was able to take each translated gene's taxonomic assignment and pull out just chlorophyta. I will use these contigs to reassemble in Canu
+#I can now go back into the PB.contigs.fasta file since I know which contigs belong to chlorophyta and pull them out
+#I need to go back in and pull the reads that only have to to with the contig I need. There is a file from Canu (a layout file that associated each read ID with a tig ID)
+#.layout folder that gives the read ID in each contig, however these are post correction reads
+#you need to get the original raw IDs from the gpkStore folders in trimming and untigging readNames.txt
+#this was a NIGHTMARE. From the contigs.layout.readToTig file it took the first two colums that contain the read ID and the associated tig. These are not numbered sequentially for future referece. The contig ID in the contig.fasta file is the same at the tig ID associated with the read ID.
+awk '{print $1,$2}' PBpico.contigs.layout.readToTig > readswithcontigs.layout
+
+#I then took that two column file with e read IDs and contig and while parsing through the chloraphyta contigs, I could awk out the read IDS I wanted
+while read line
+do 
+awk '$2 == '$line' {print $0}' readswithcontigs.layout  
+done < chlorophyta.contigs.txt > chlorophytareadIDs.txt
+
+cat chlorophytareadIDs.txt | awk '{print $1}' > justreadIDslist.txt
+
+#pull out sequnce name associated with that canu-given readID (this will take a while)
+while read line
+do
+awk '$1 == '$line' {print $0}' readNames.txt
+done < justreadIDslist.txt > sequencenamesofcholorphytareads.txt
+
+# Now we need to go into the PacBio raw reads and pull out those that correspond to the new list
+cat *.fastq > allreads.fastq
+
+# i need to make a new file with just the read names
+awk '{print $2}' sequencenamesofchlorophytareads.txt > rawseqname.txt
+
+#use QIIME filter_fasta.py to get reads that mapped to chlorophyta contigs
+filter_fasta.py -f allreads.fastq -o chlorophytaseq.fastq -s rawseqname.txt 
+
+#Run subsetted raw reads through the entire chlorophyta reads through the whole pipeline.
+/home/lab/canu/Linux-amd64/bin/canu -d ChlorophytaCanuAssembly_CTA -p ChloroCTA genomeSize=23m -pacbio-raw ./rawreads/chlorophytaseq.fastq
+
+
+
+#Open Source Software
+
+#Canu
+#Koren, S., Walenz, B. P., Berlin, K., Miller, J. R., Bergman, N. H., & Phillippy, A. M. (2017). Canu: scalable and accurate long-read assembly #via adaptive k-mer weighting and repeat separation. Genome Research, 27(5), 722–736. http://doi.org/10.1101/gr.215087.116
+
+#QIIME
+#J Gregory Caporaso, Justin Kuczynski, Jesse Stombaugh, Kyle Bittinger, Frederic D Bushman, Elizabeth K Costello, Noah Fierer, Antonio Gonzalez #Pena, Julia K Goodrich, Jeffrey I Gordon, Gavin A Huttley, Scott T Kelley, Dan Knights, Jeremy E Koenig, Ruth E Ley, Catherine A Lozupone, Daniel #McDonald, Brian D Muegge, Meg Pirrung, Jens Reeder, Joel R Sevinsky, Peter J Turnbaugh, William A Walters, Jeremy Widmann, Tanya Yatsunenko, #Jesse Zaneveld and Rob Knight; Nature Methods, 2010; doi:10.1038/nmeth.f.303
+
+#Kaiju
+#Menzel, P., Ng, K. L., & Krogh, A. (2016). Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nature Communications, 7, #1–9. http://doi.org/10.1038/ncomms11257
+
+
+
+
+
+
+
+
+
+
+
+
+
+
